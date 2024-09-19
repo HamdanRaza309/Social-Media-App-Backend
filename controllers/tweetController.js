@@ -1,4 +1,5 @@
 import Tweet from "../models/Tweet.js";
+import User from "../models/User.js";
 
 export const createTweet = async (req, res) => {
     try {
@@ -66,3 +67,37 @@ export const deleteTweet = async (req, res) => {
     }
 };
 
+export const likeOrDislike = async (req, res) => {
+    try {
+        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const tweetId = req.params.id;
+
+        // Find the tweet by ID
+        const tweet = await Tweet.findById(tweetId);
+
+        // Check if the user has already liked the tweet
+        if (tweet.like.includes(loggedInUserId)) {
+            // Dislike the tweet by removing the user ID from the 'like' array
+            await Tweet.findByIdAndUpdate(tweetId, { $pull: { like: loggedInUserId } });
+            return res.status(200).json({
+                message: 'User disliked the tweet.',
+                success: true
+            });
+        } else {
+            // Like the tweet by adding the user ID to the 'like' array
+            await Tweet.findByIdAndUpdate(tweetId, { $push: { like: loggedInUserId } });
+            return res.status(200).json({
+                message: 'User liked the tweet.',
+                success: true
+            });
+        }
+
+    } catch (error) {
+        console.error('Error in likeOrDislike:', error);
+
+        return res.status(500).json({
+            message: 'An error occurred while processing the request.',
+            success: false
+        });
+    }
+};

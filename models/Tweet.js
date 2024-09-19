@@ -14,11 +14,6 @@ const tweetSchema = new mongoose.Schema({
         // type: [mongoose.Schema.Types.ObjectId], // Array of user IDs who liked the tweet
         type: Array,
         default: [],
-    },
-    bookmarks: {
-        // type: [mongoose.Schema.Types.ObjectId], // Array of user IDs who bookmarked the tweet
-        type: Array,
-        default: [],
     }
 }, { timestamps: true });
 

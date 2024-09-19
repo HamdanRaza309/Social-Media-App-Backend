@@ -114,3 +114,63 @@ export const Logout = (req, res) => {
         success: true
     });
 }
+
+export const bookmarks = async (req, res) => {
+    try {
+        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const tweetId = req.params.id;
+
+        const user = await User.findById(loggedInUserId);
+        if (user.bookmarks.includes(tweetId)) {
+            // remove from bookmarks
+            await User.findByIdAndUpdate(loggedInUserId, { $pull: { bookmarks: tweetId } });
+            return res.status(200).json({
+                message: "Removed from bookmarks."
+            })
+        } else {
+            // add to bookmarks
+            await User.findByIdAndUpdate(loggedInUserId, { $push: { bookmarks: tweetId } });
+            return res.status(200).json({
+                message: "bookmarked."
+            })
+        }
+    } catch (error) {
+        console.error('Error in bookmarks:', error);
+
+        return res.status(500).json({
+            message: 'An error occurred while processing the request.',
+            success: false
+        });
+    }
+};
+
+export const getProfile = async (req, res) => {
+    try {
+        const id = req.params.id;
+
+        // Find the user by ID
+        const user = await User.findById(id);
+
+        // Check if user exists
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found.',
+                success: false
+            });
+        }
+
+        // Return user profile if found
+        return res.status(200).json({
+            user,
+            success: true
+        });
+
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+
+        return res.status(500).json({
+            message: 'An error occurred while fetching the user profile.',
+            success: false
+        });
+    }
+};

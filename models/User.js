@@ -18,6 +18,19 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true,
+    },
+    followers: {
+        type: Array,
+        default: [],
+    },
+    following: {
+        type: Array,
+        default: [],
+    },
+    bookmarks: {
+        // type: [mongoose.Schema.Types.ObjectId], // Array of user IDs who bookmarked the tweet
+        type: Array,
+        default: [],
     }
 }, { timestamps: true });
 
