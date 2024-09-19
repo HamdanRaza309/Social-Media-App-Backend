@@ -1,14 +1,15 @@
 import Tweet from "../models/Tweet.js";
 import User from "../models/User.js";
 
+// Create a tweet
 export const createTweet = async (req, res) => {
     try {
-        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const loggedInUserId = req.user; // from authenticateUser middleware
         const { description } = req.body;
 
         if (!description || !loggedInUserId) {
             return res.status(400).json({
-                message: 'All fields are required.',
+                message: 'Description and user ID are required.',
                 success: false
             });
         }
@@ -19,7 +20,6 @@ export const createTweet = async (req, res) => {
             userId: loggedInUserId
         });
 
-        // Respond with success
         return res.status(201).json({
             message: 'Tweet created successfully.',
             success: true,
@@ -28,30 +28,31 @@ export const createTweet = async (req, res) => {
 
     } catch (error) {
         console.error('Error creating tweet:', error);
-
         return res.status(500).json({
-            message: 'An error occurred while creating the tweet. Please try again later.',
+            message: 'Server error while creating the tweet.',
             success: false
         });
     }
 };
 
+// Delete a tweet
 export const deleteTweet = async (req, res) => {
     try {
         const { id } = req.params;
+        const loggedInUserId = req.user;
 
-        // Find the tweet by ID and delete it
-        const tweet = await Tweet.findByIdAndDelete(id);
+        const tweet = await Tweet.findById(id);
 
-        // If no tweet is found, return a 404 error
-        if (!tweet) {
+        // Check if tweet exists and the user is authorized to delete it
+        if (!tweet || tweet.userId.toString() !== loggedInUserId) {
             return res.status(404).json({
-                message: 'Tweet not found.',
+                message: 'Tweet not found or unauthorized action.',
                 success: false
             });
         }
 
-        // Return success response if tweet is deleted
+        await tweet.deleteOne();
+
         return res.status(200).json({
             message: 'Tweet deleted successfully.',
             success: true
@@ -59,100 +60,117 @@ export const deleteTweet = async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting tweet:', error);
-
-        // Return error response
         return res.status(500).json({
-            message: 'An error occurred while deleting the tweet.',
+            message: 'Server error while deleting the tweet.',
             success: false
         });
     }
 };
 
+// Like or dislike a tweet
 export const likeOrDislike = async (req, res) => {
     try {
-        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const loggedInUserId = req.user; // from authenticateUser middleware
         const tweetId = req.params.id;
 
-        // Find the tweet by ID
         const tweet = await Tweet.findById(tweetId);
 
-        // Check if the user has already liked the tweet
-        if (tweet.like.includes(loggedInUserId)) {
-            // Dislike the tweet by removing the user ID from the 'like' array
-            await Tweet.findByIdAndUpdate(tweetId, { $pull: { like: loggedInUserId } });
-            return res.status(200).json({
-                message: 'User disliked the tweet.',
-                success: true
-            });
-        } else {
-            // Like the tweet by adding the user ID to the 'like' array
-            await Tweet.findByIdAndUpdate(tweetId, { $push: { like: loggedInUserId } });
-            return res.status(200).json({
-                message: 'User liked the tweet.',
-                success: true
+        if (!tweet) {
+            return res.status(404).json({
+                message: 'Tweet not found.',
+                success: false
             });
         }
 
+        // Check if the user has already liked the tweet
+        if (tweet.like.includes(loggedInUserId)) {
+            // Dislike the tweet
+            await tweet.updateOne({ $pull: { like: loggedInUserId } });
+            return res.status(200).json({
+                message: 'Tweet disliked.',
+                success: true
+            });
+        } else {
+            // Like the tweet
+            await tweet.updateOne({ $push: { like: loggedInUserId } });
+            return res.status(200).json({
+                message: 'Tweet liked.',
+                success: true
+            });
+        }
     } catch (error) {
-        console.error('Error in likeOrDislike:', error);
-
+        console.error('Error liking/disliking tweet:', error);
         return res.status(500).json({
-            message: 'An error occurred while processing the request.',
+            message: 'Server error while processing the request.',
             success: false
         });
     }
 };
 
+// Get all tweets (of logged-in user + following users)
 export const getAllTweets = async (req, res) => {
     try {
-        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const loggedInUserId = req.user; // from authenticateUser middleware
 
-        // Fetch the logged-in user and their tweets
+        // Fetch logged-in user
         const loggedInUser = await User.findById(loggedInUserId);
+
+        if (!loggedInUser) {
+            return res.status(404).json({
+                message: 'User not found.',
+                success: false
+            });
+        }
+
+        // Fetch logged-in user's tweets
         const loggedInUserTweets = await Tweet.find({ userId: loggedInUserId });
 
-        // Fetch the tweets of users that the logged-in user is following
-        const followingUsersTweets = await Promise.all(
-            loggedInUser.following.map(async (otherUserId) => {
-                return await Tweet.find({ userId: otherUserId });
-            })
-        );
+        // Fetch tweets of users the logged-in user follows
+        const followingUsersTweets = await Tweet.find({
+            userId: { $in: loggedInUser.following }
+        });
 
-        // Combine the tweets of the logged-in user and their following users
         return res.status(200).json({
-            tweets: loggedInUserTweets.concat(...followingUsersTweets),
+            tweets: loggedInUserTweets.concat(followingUsersTweets),
             success: true
         });
     } catch (error) {
-        console.error('Error fetching tweets:', error);
+        console.error('Error fetching all tweets:', error);
         return res.status(500).json({
-            message: 'An error occurred while fetching tweets.',
+            message: 'Server error while fetching tweets.',
             success: false
         });
     }
 };
 
+// Get tweets from users the logged-in user is following
 export const getFollowingTweets = async (req, res) => {
     try {
-        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const loggedInUserId = req.user; // from authenticateUser middleware
+
+        // Fetch logged-in user
         const loggedInUser = await User.findById(loggedInUserId);
 
-        // Fetch the tweets of users that the logged-in user is following
-        const followingUsersTweets = await Promise.all(
-            loggedInUser.following.map(async (otherUserId) => {
-                return await Tweet.find({ userId: otherUserId });
-            })
-        );
+        if (!loggedInUser) {
+            return res.status(404).json({
+                message: 'User not found.',
+                success: false
+            });
+        }
 
-        // Combine the tweets of the logged-in user and their following users
+        // Fetch tweets of users the logged-in user follows
+        const followingUsersTweets = await Tweet.find({
+            userId: { $in: loggedInUser.following }
+        });
+
         return res.status(200).json({
-            tweets: [].concat(...followingUsersTweets),
+            tweets: followingUsersTweets,
             success: true
         });
     } catch (error) {
         console.error('Error fetching following tweets:', error);
         return res.status(500).json({
-            message: 'An error occurred while fetching following tweets.',
+            message: 'Server error while fetching tweets.',
             success: false
         });
     }
