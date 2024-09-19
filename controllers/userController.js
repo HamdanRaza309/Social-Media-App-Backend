@@ -149,7 +149,7 @@ export const getProfile = async (req, res) => {
         const id = req.params.id;
 
         // Find the user by ID
-        const user = await User.findById(id);
+        const user = await User.findById(id).select("-password");
 
         // Check if user exists
         if (!user) {
@@ -170,6 +170,124 @@ export const getProfile = async (req, res) => {
 
         return res.status(500).json({
             message: 'An error occurred while fetching the user profile.',
+            success: false
+        });
+    }
+};
+
+export const getOtherUsers = async (req, res) => {
+    try {
+        const loggedInUserId = req.user; // from authenticateUser middleware
+
+        // Find all users except the logged-in user, and exclude password field
+        const otherUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
+
+        if (otherUsers.length === 0) {
+            return res.status(404).json({
+                message: 'No other users found.',
+                success: false
+            });
+        }
+
+        return res.status(200).json({
+            otherUsers,
+            success: true
+        });
+
+    } catch (error) {
+        console.error('Error fetching other users:', error);
+
+        return res.status(500).json({
+            message: 'An error occurred while fetching users.',
+            success: false
+        });
+    }
+};
+
+export const follow = async (req, res) => {
+    try {
+        const loggedInUserId = req.user; // from authenticateUser middleware
+        const userId = req.params.id;
+
+        // Find the logged-in user and the user to be followed
+        const loggedInUser = await User.findById(loggedInUserId);
+        const user = await User.findById(userId);
+
+        if (!user || !loggedInUser) {
+            return res.status(404).json({
+                message: 'User not found.',
+                success: false
+            });
+        }
+
+        // Check if the logged-in user is already following the other user
+        if (!user.followers.includes(loggedInUserId)) {
+            // Add the logged-in user to the user's followers and update following
+            await user.updateOne({ $push: { followers: loggedInUserId } });
+            await loggedInUser.updateOne({ $push: { following: userId } });
+
+            return res.status(200).json({
+                message: `You just followed ${user.name}`,
+                success: true
+            });
+        } else {
+            // If the user is already being followed, return an error message
+            return res.status(400).json({
+                message: `You are already following ${user.name}`,
+                success: false
+            });
+        }
+
+    } catch (error) {
+        console.error('Error in follow function:', error);
+
+        return res.status(500).json({
+            message: 'An error occurred while trying to follow the user.',
+            success: false
+        });
+    }
+};
+
+export const unfollow = async (req, res) => {
+    try {
+        const loggedInUserId = req.user; // from authenticateUser middleware
+        const userId = req.params.id;
+
+        // Find the logged-in user and the user to be unfollowed
+        const loggedInUser = await User.findById(loggedInUserId);
+        const user = await User.findById(userId);
+
+        // Check if both users exist
+        if (!user || !loggedInUser) {
+            return res.status(404).json({
+                message: 'User not found.',
+                success: false
+            });
+        }
+
+        // Check if the logged-in user is following the other user
+        if (loggedInUser.following.includes(userId)) {
+            // Remove the logged-in user from the user's followers and update following
+            await user.updateOne({ $pull: { followers: loggedInUserId } });
+            await loggedInUser.updateOne({ $pull: { following: userId } });
+
+            return res.status(200).json({
+                message: `You have unfollowed ${user.name}.`,
+                success: true
+            });
+        } else {
+            // If the user is not being followed, return an error message
+            return res.status(400).json({
+                message: `You are not following ${user.name}.`,
+                success: false
+            });
+        }
+
+    } catch (error) {
+        console.error('Error in unfollow function:', error);
+
+        return res.status(500).json({
+            message: 'An error occurred while trying to unfollow the user.',
             success: false
         });
     }
