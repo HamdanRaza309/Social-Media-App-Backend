@@ -3,9 +3,10 @@ import User from "../models/User.js";
 
 export const createTweet = async (req, res) => {
     try {
-        const { description, id } = req.body;
+        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const { description } = req.body;
 
-        if (!description || !id) {
+        if (!description || !loggedInUserId) {
             return res.status(400).json({
                 message: 'All fields are required.',
                 success: false
@@ -15,7 +16,7 @@ export const createTweet = async (req, res) => {
         // Create a new tweet
         const tweet = await Tweet.create({
             description,
-            userId: id
+            userId: loggedInUserId
         });
 
         // Respond with success
@@ -97,6 +98,61 @@ export const likeOrDislike = async (req, res) => {
 
         return res.status(500).json({
             message: 'An error occurred while processing the request.',
+            success: false
+        });
+    }
+};
+
+export const getAllTweets = async (req, res) => {
+    try {
+        const loggedInUserId = req.user;  // from authenticateUser middleware
+
+        // Fetch the logged-in user and their tweets
+        const loggedInUser = await User.findById(loggedInUserId);
+        const loggedInUserTweets = await Tweet.find({ userId: loggedInUserId });
+
+        // Fetch the tweets of users that the logged-in user is following
+        const followingUsersTweets = await Promise.all(
+            loggedInUser.following.map(async (otherUserId) => {
+                return await Tweet.find({ userId: otherUserId });
+            })
+        );
+
+        // Combine the tweets of the logged-in user and their following users
+        return res.status(200).json({
+            tweets: loggedInUserTweets.concat(...followingUsersTweets),
+            success: true
+        });
+    } catch (error) {
+        console.error('Error fetching tweets:', error);
+        return res.status(500).json({
+            message: 'An error occurred while fetching tweets.',
+            success: false
+        });
+    }
+};
+
+export const getFollowingTweets = async (req, res) => {
+    try {
+        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const loggedInUser = await User.findById(loggedInUserId);
+
+        // Fetch the tweets of users that the logged-in user is following
+        const followingUsersTweets = await Promise.all(
+            loggedInUser.following.map(async (otherUserId) => {
+                return await Tweet.find({ userId: otherUserId });
+            })
+        );
+
+        // Combine the tweets of the logged-in user and their following users
+        return res.status(200).json({
+            tweets: [].concat(...followingUsersTweets),
+            success: true
+        });
+    } catch (error) {
+        console.error('Error fetching following tweets:', error);
+        return res.status(500).json({
+            message: 'An error occurred while fetching following tweets.',
             success: false
         });
     }
