@@ -14,7 +14,11 @@ const tweetSchema = new mongoose.Schema({
         // type: [mongoose.Schema.Types.ObjectId], // Array of user IDs who liked the tweet
         type: Array,
         default: [],
-    }
+    },
+    userDetails: {
+        type: Array,
+        default: [],
+    },
 }, { timestamps: true });
 
 const Tweet = mongoose.model('Tweet', tweetSchema);

@@ -118,7 +118,7 @@ export const Logout = (req, res) => {
 
 export const bookmarks = async (req, res) => {
     try {
-        const loggedInUserId = req.user;  // from authenticateUser middleware
+        const loggedInUserId = req.user;
         const tweetId = req.params.id;
 
         const user = await User.findById(loggedInUserId);
@@ -126,13 +126,15 @@ export const bookmarks = async (req, res) => {
             // remove from bookmarks
             await User.findByIdAndUpdate(loggedInUserId, { $pull: { bookmarks: tweetId } });
             return res.status(200).json({
-                message: "Removed from bookmarks."
+                message: "Removed from bookmarks.",
+                success: true
             })
         } else {
             // add to bookmarks
             await User.findByIdAndUpdate(loggedInUserId, { $push: { bookmarks: tweetId } });
             return res.status(200).json({
-                message: "bookmarked."
+                message: "bookmarked.",
+                success: true
             })
         }
     } catch (error) {
@@ -178,7 +180,7 @@ export const getProfile = async (req, res) => {
 
 export const getOtherUsers = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.params.id;
 
         // Find all users except the logged-in user, and exclude password field
         const otherUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
@@ -207,7 +209,7 @@ export const getOtherUsers = async (req, res) => {
 
 export const follow = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.user;
         const userId = req.params.id;
 
         // Find the logged-in user and the user to be followed
@@ -251,7 +253,7 @@ export const follow = async (req, res) => {
 
 export const unfollow = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.user;
         const userId = req.params.id;
 
         // Find the logged-in user and the user to be unfollowed

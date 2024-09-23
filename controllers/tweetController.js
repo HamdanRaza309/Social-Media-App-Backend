@@ -4,20 +4,23 @@ import User from "../models/User.js";
 // Create a tweet
 export const createTweet = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.user;
         const { description } = req.body;
 
         if (!description || !loggedInUserId) {
             return res.status(400).json({
-                message: 'Description and user ID are required.',
+                message: 'Please write something.',
                 success: false
             });
         }
 
+        const user = await User.findById(loggedInUserId).select("-password");
+
         // Create a new tweet
         const tweet = await Tweet.create({
             description,
-            userId: loggedInUserId
+            userId: loggedInUserId,
+            userDetails: user
         });
 
         return res.status(201).json({
@@ -70,7 +73,7 @@ export const deleteTweet = async (req, res) => {
 // Like or dislike a tweet
 export const likeOrDislike = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.user;
         const tweetId = req.params.id;
 
         const tweet = await Tweet.findById(tweetId);
@@ -107,10 +110,41 @@ export const likeOrDislike = async (req, res) => {
     }
 };
 
+// Get all tweets (of logged-in user)
+export const getTweets = async (req, res) => {
+    try {
+        const loggedInUserId = req.user;
+
+        // Fetch logged-in user
+        const loggedInUser = await User.findById(loggedInUserId);
+
+        if (!loggedInUser) {
+            return res.status(404).json({
+                message: 'User not found.',
+                success: false
+            });
+        }
+
+        // Fetch logged-in user's tweets
+        const loggedInUserTweets = await Tweet.find({ userId: loggedInUserId });
+
+        return res.status(200).json({
+            tweets: loggedInUserTweets,
+            success: true
+        });
+    } catch (error) {
+        console.error('Error fetching all tweets:', error);
+        return res.status(500).json({
+            message: 'Server error while fetching tweets.',
+            success: false
+        });
+    }
+};
+
 // Get all tweets (of logged-in user + following users)
 export const getAllTweets = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.params.id;
 
         // Fetch logged-in user
         const loggedInUser = await User.findById(loggedInUserId);
@@ -146,7 +180,7 @@ export const getAllTweets = async (req, res) => {
 // Get tweets from users the logged-in user is following
 export const getFollowingTweets = async (req, res) => {
     try {
-        const loggedInUserId = req.user; // from authenticateUser middleware
+        const loggedInUserId = req.user;
 
         // Fetch logged-in user
         const loggedInUser = await User.findById(loggedInUserId);
